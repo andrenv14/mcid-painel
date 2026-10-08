@@ -1,4 +1,5 @@
 :root {
+  color-scheme: light;
   font-family: 'Segoe UI', Arial, sans-serif;
   color: #17231d;
   background: #f5f7f4;
@@ -30,6 +31,7 @@
 }
 
 :root[data-theme='dark'] {
+  color-scheme: dark;
   color: #e9f0ec;
   background: #111713;
   --bg: #111713;
