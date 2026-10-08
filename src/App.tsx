@@ -5,6 +5,7 @@ import {
   type DragEvent,
   type FormEvent,
   type KeyboardEvent,
+  type ReactNode,
 } from 'react'
 import { Icon, type IconName } from './components/Icon'
 import { ProgressBar } from './components/ProgressBar'
@@ -165,12 +166,12 @@ function App() {
   }, [])
 
   const moveTask = (taskId: string, nextStatus: TaskStatus) => {
-    let changedTaskTitle = ''
+    const taskToMove = tasks.find((task) => task.id === taskId)
+    if (!taskToMove || taskToMove.status === nextStatus) return
 
     setTasks((currentTasks) =>
       currentTasks.map((task) => {
-        if (task.id !== taskId || task.status === nextStatus) return task
-        changedTaskTitle = task.title
+        if (task.id !== taskId) return task
         return {
           ...task,
           status: nextStatus,
@@ -187,10 +188,8 @@ function App() {
       }),
     )
 
-    if (changedTaskTitle) {
-      const destination = columns.find((column) => column.id === nextStatus)?.title
-      showToast(`“${changedTaskTitle}” movida para ${destination}.`)
-    }
+    const destination = columns.find((column) => column.id === nextStatus)?.title
+    showToast(`“${taskToMove.title}” movida para ${destination}.`)
   }
 
   const handleDrop = (event: DragEvent<HTMLDivElement>, status: TaskStatus) => {
@@ -927,7 +926,7 @@ interface MetricCardProps {
   detail: string
   icon: IconName
   tone: 'green' | 'blue' | 'violet' | 'amber'
-  mini: React.ReactNode
+  mini: ReactNode
 }
 
 function MetricCard({ label, value, detail, icon, tone, mini }: MetricCardProps) {
