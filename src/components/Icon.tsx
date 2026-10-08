@@ -1,4 +1,4 @@
-import type { SVGProps } from 'react'
+import type { ReactNode, SVGProps } from 'react'
 
 export type IconName =
   | 'grid'
@@ -38,7 +38,7 @@ interface IconProps extends SVGProps<SVGSVGElement> {
   size?: number
 }
 
-const paths: Record<IconName, React.ReactNode> = {
+const paths: Record<IconName, ReactNode> = {
   grid: (
     <>
       <rect x="3" y="3" width="7" height="7" rx="2" />
