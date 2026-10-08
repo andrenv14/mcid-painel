@@ -665,7 +665,7 @@ function App() {
             <div className="drawer-progress"><span><strong>Execução</strong><b>{selectedTask.progress}%</b></span><ProgressBar value={selectedTask.progress} tone={selectedTask.progress >= 80 ? 'green' : 'blue'} /></div>
             <dl className="drawer-details"><div><dt>Responsável</dt><dd>{selectedTask.owner}</dd></div><div><dt>Prioridade</dt><dd>{selectedTask.priority}</dd></div><div><dt>Prazo</dt><dd>{selectedTask.due}</dd></div><div><dt>Evidências</dt><dd>{selectedTask.evidence} arquivos</dd></div></dl>
             <div className="drawer-evidence"><Icon name="folder" /><div><strong>Evidências da ação</strong><span>A conexão com Teams/SharePoint será ativada no back-end.</span></div></div>
-            {selectedTask.status !== 'done' && <button type="button" className="primary-button primary-button--full" onClick={() => { const order: TaskStatus[] = ['backlog', 'inProgress', 'review', 'done']; moveTask(selectedTask.id, order[Math.min(order.indexOf(selectedTask.status) + 1, 3)]); setSelectedTask(null) }}>Avançar para a próxima etapa <Icon name="arrowRight" size={17} /></button>}
+            {selectedTask.status !== 'done' && <button type="button" className="primary-button primary-button--full" onClick={() => { const order: TaskStatus[] = ['backlog', 'inProgress', 'review', 'done']; const nextStatus = order[Math.min(order.indexOf(selectedTask.status) + 1, 3)] ?? 'done'; moveTask(selectedTask.id, nextStatus); setSelectedTask(null) }}>Avançar para a próxima etapa <Icon name="arrowRight" size={17} /></button>}
           </aside>
         </div>
       )}
