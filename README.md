@@ -52,7 +52,12 @@ npm run preview
 src/
 ├── components/
 │   ├── Icon.tsx
-│   └── ProgressBar.tsx
+│   ├── MetricCard.tsx
+│   ├── NewTaskModal.tsx
+│   ├── ProgressBar.tsx
+│   ├── SourceCard.tsx
+│   ├── TaskCard.tsx
+│   └── TaskDrawer.tsx
 ├── data/
 │   └── mockData.ts
 ├── App.tsx
