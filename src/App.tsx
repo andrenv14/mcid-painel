@@ -218,10 +218,38 @@ function readTasks(): GovernanceTask[] {
     const saved = localStorage.getItem(STORAGE_KEY)
     if (!saved) return initialTasks
     const parsed: unknown = JSON.parse(saved)
-    return Array.isArray(parsed) ? (parsed as GovernanceTask[]) : initialTasks
+    if (!Array.isArray(parsed)) return initialTasks
+
+    const validTasks = parsed.filter(isGovernanceTask)
+    return validTasks.length > 0 ? validTasks : initialTasks
   } catch {
     return initialTasks
   }
+}
+
+function isGovernanceTask(value: unknown): value is GovernanceTask {
+  if (!value || typeof value !== 'object') return false
+
+  const task = value as Partial<GovernanceTask>
+  const validStatuses: TaskStatus[] = ['backlog', 'inProgress', 'review', 'done']
+  const validPriorities: Priority[] = ['Alta', 'Média', 'Baixa']
+
+  return (
+    typeof task.id === 'string' &&
+    typeof task.title === 'string' &&
+    typeof task.program === 'string' &&
+    typeof task.reference === 'string' &&
+    validStatuses.includes(task.status as TaskStatus) &&
+    validPriorities.includes(task.priority as Priority) &&
+    typeof task.owner === 'string' &&
+    typeof task.initials === 'string' &&
+    typeof task.due === 'string' &&
+    typeof task.progress === 'number' &&
+    task.progress >= 0 &&
+    task.progress <= 100 &&
+    typeof task.evidence === 'number' &&
+    typeof task.comments === 'number'
+  )
 }
 
 function readTheme(): 'light' | 'dark' {
@@ -280,6 +308,25 @@ function App() {
     return () => window.clearTimeout(timer)
   }, [toast])
 
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      setNewTaskOpen(false)
+      setSelectedTask(null)
+      setSidebarOpen(false)
+    }
+
+    window.addEventListener('keydown', handleEscape)
+    return () => window.removeEventListener('keydown', handleEscape)
+  }, [])
+
+  useEffect(() => {
+    document.body.style.overflow = newTaskOpen || selectedTask ? 'hidden' : ''
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [newTaskOpen, selectedTask])
+
   const filteredTasks = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase('pt-BR')
     return tasks.filter((task) => {
@@ -289,9 +336,11 @@ function App() {
   }, [program, query, tasks])
 
   const completed = tasks.filter((task) => task.status === 'done').length
-  const active = tasks.filter((task) => task.status === 'inProgress' || task.status === 'review').length
   const attention = tasks.filter((task) => task.priority === 'Alta' && task.status !== 'done').length
-  const taskExecution = Math.round(tasks.reduce((sum, task) => sum + task.progress, 0) / tasks.length)
+  const completionRate = tasks.length > 0 ? Math.round((completed / tasks.length) * 100) : 0
+  const averageProgress = tasks.length > 0
+    ? Math.round(tasks.reduce((sum, task) => sum + task.progress, 0) / tasks.length)
+    : 0
 
   const navigate = (next: View) => {
     setView(next)
@@ -387,7 +436,7 @@ function App() {
           <button type="button" className="icon-button menu-button" onClick={() => setSidebarOpen(true)} aria-label="Abrir menu"><Icon name="menu" /></button>
           <label className="search">
             <Icon name="search" size={18} />
-            <input value={query} onChange={(event) => setQuery(event.target.value)} onFocus={() => query && setView('kanban')} placeholder="Buscar ação, controle ou responsável..." aria-label="Buscar no painel" />
+            <input value={query} onChange={(event) => { setQuery(event.target.value); if (event.target.value.trim()) setView('kanban') }} placeholder="Buscar ação, controle ou responsável..." aria-label="Buscar no painel" />
             {query && <button type="button" onClick={() => setQuery('')} aria-label="Limpar busca"><Icon name="x" size={15} /></button>}
           </label>
           <div className="topbar__actions">
@@ -419,8 +468,8 @@ function App() {
             <>
               <section className="metrics-grid" aria-label="Indicadores executivos">
                 <article className="metric-card metric-card--featured">
-                  <div><span className="metric-label">Execução das ações</span><strong>{taskExecution}%</strong><small>{completed} de {tasks.length} ações concluídas</small></div>
-                  <Ring value={taskExecution} />
+                  <div><span className="metric-label">Ações concluídas</span><strong>{completionRate}%</strong><small>{completed} de {tasks.length} ações · avanço médio {averageProgress}%</small></div>
+                  <Ring value={completionRate} />
                 </article>
                 <article className="metric-card"><span className="metric-icon metric-icon--green"><Icon name="clipboard" /></span><div><span className="metric-label">Cobertura PPSI · GI1</span><strong>74%</strong><small><b>+6 p.p.</b> desde a última medição</small></div></article>
                 <article className="metric-card"><span className="metric-icon metric-icon--blue"><Icon name="chart" /></span><div><span className="metric-label">iESGo</span><strong>61%</strong><small>Estágio intermediário</small></div></article>
@@ -603,7 +652,21 @@ function App() {
                       <div className="kanban-column__heading"><div><span className={'column-dot column-dot--' + column.id} /><strong>{column.title}</strong><em>{columnTasks.length}</em></div><small>{column.subtitle}</small></div>
                       <div className="kanban-column__body">
                         {columnTasks.map((task) => (
-                          <article className="kanban-card" key={task.id} draggable onDragStart={() => setDragId(task.id)} onClick={() => setSelectedTask(task)}>
+                          <article
+                            className="kanban-card"
+                            key={task.id}
+                            draggable
+                            role="button"
+                            tabIndex={0}
+                            aria-label={`Abrir ação: ${task.title}`}
+                            onDragStart={() => setDragId(task.id)}
+                            onClick={() => setSelectedTask(task)}
+                            onKeyDown={(event) => {
+                              if (event.key !== 'Enter' && event.key !== ' ') return
+                              event.preventDefault()
+                              setSelectedTask(task)
+                            }}
+                          >
                             <div className="kanban-card__top"><span className="soft-tag">{task.program}</span><span className={'priority priority--' + task.priority.toLocaleLowerCase('pt-BR').normalize('NFD').replace(/[\u0300-\u036f]/g, '')}>{task.priority}</span></div>
                             <h3>{task.title}</h3>
                             <p>{task.reference}</p>
@@ -648,8 +711,8 @@ function App() {
 
       {newTaskOpen && (
         <div className="modal-layer" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setNewTaskOpen(false) }}>
-          <form className="modal" onSubmit={addTask}>
-            <div className="modal__heading"><div><span className="section-kicker">Plano de ação</span><h2>Adicionar nova ação</h2></div><button type="button" className="icon-button" onClick={() => setNewTaskOpen(false)} aria-label="Fechar"><Icon name="x" /></button></div>
+          <form className="modal" onSubmit={addTask} role="dialog" aria-modal="true" aria-labelledby="new-task-title">
+            <div className="modal__heading"><div><span className="section-kicker">Plano de ação</span><h2 id="new-task-title">Adicionar nova ação</h2></div><button type="button" className="icon-button" onClick={() => setNewTaskOpen(false)} aria-label="Fechar"><Icon name="x" /></button></div>
             <label>Título da ação<input autoFocus value={newTaskTitle} onChange={(event) => setNewTaskTitle(event.target.value)} placeholder="Ex.: Validar evidências do Controle 14" required /></label>
             <label>Instrumento<select value={newTaskProgram} onChange={(event) => setNewTaskProgram(event.target.value)}><option>PPSI</option><option>iESGo</option><option>iGestTI</option><option>iGovSISP</option><option>PDTIC</option><option>PTD</option></select></label>
             <div className="modal__actions"><button type="button" className="secondary-button" onClick={() => setNewTaskOpen(false)}>Cancelar</button><button type="submit" className="primary-button">Adicionar ao quadro</button></div>
@@ -659,9 +722,9 @@ function App() {
 
       {selectedTask && (
         <div className="drawer-layer" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedTask(null) }}>
-          <aside className="task-drawer">
+          <aside className="task-drawer" role="dialog" aria-modal="true" aria-labelledby="task-drawer-title">
             <div className="drawer__heading"><span className="soft-tag">{selectedTask.program}</span><button type="button" className="icon-button" onClick={() => setSelectedTask(null)} aria-label="Fechar"><Icon name="x" /></button></div>
-            <h2>{selectedTask.title}</h2><p>{selectedTask.reference}</p>
+            <h2 id="task-drawer-title">{selectedTask.title}</h2><p>{selectedTask.reference}</p>
             <div className="drawer-progress"><span><strong>Execução</strong><b>{selectedTask.progress}%</b></span><ProgressBar value={selectedTask.progress} tone={selectedTask.progress >= 80 ? 'green' : 'blue'} /></div>
             <dl className="drawer-details"><div><dt>Responsável</dt><dd>{selectedTask.owner}</dd></div><div><dt>Prioridade</dt><dd>{selectedTask.priority}</dd></div><div><dt>Prazo</dt><dd>{selectedTask.due}</dd></div><div><dt>Evidências</dt><dd>{selectedTask.evidence} arquivos</dd></div></dl>
             <div className="drawer-evidence"><Icon name="folder" /><div><strong>Evidências da ação</strong><span>A conexão com Teams/SharePoint será ativada no back-end.</span></div></div>
@@ -670,7 +733,7 @@ function App() {
         </div>
       )}
 
-      {toast && <div className="toast"><Icon name="check" size={17} /><span>{toast}</span></div>}
+      {toast && <div className="toast" role="status" aria-live="polite"><Icon name="check" size={17} /><span>{toast}</span></div>}
     </div>
   )
 }
